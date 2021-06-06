@@ -36,84 +36,46 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var tsyringe_1 = require("tsyringe");
 var http_1 = require("../http");
-var CreateGameRoomService_1 = require("../services/CreateGameRoomService");
-var CreateUserService_1 = require("../services/CreateUserService");
-var GetGameRoomByUserService_1 = require("../services/GetGameRoomByUserService");
-var GetUserBySocketIdService_1 = require("../services/GetUserBySocketIdService");
+var GameRoom_1 = require("./GameRoom");
+var rooms = {};
+var id = 0;
 http_1.io.on("connect", function (socket) {
-    socket.on('ping', function () {
-        socket.emit("pong", "pong");
-        console.log('ping');
-    });
-    socket.on("create_user", function (data) { return __awaiter(void 0, void 0, void 0, function () {
-        var device_id, createUserService;
+    var player = new GameRoom_1.GamePlayer(socket);
+    console.log("NEW PLAYER | " + player.id);
+    // socket.on("create_user", async (data) => {
+    //   const { device_id } = JSON.parse(data);
+    //   const createUserService = container.resolve(CreateUserService);
+    //   await createUserService.execute({
+    //     device_id,
+    //     socket_id: socket.id,
+    //   });
+    // });
+    socket.on("create_room", function (data) { return __awaiter(void 0, void 0, void 0, function () {
+        var parsedData, roomName, gameRoom;
         return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    device_id = data.device_id;
-                    createUserService = tsyringe_1.container.resolve(CreateUserService_1.CreateUserService);
-                    return [4 /*yield*/, createUserService.execute({
-                            device_id: device_id,
-                            socket_id: socket.id,
-                        })];
-                case 1:
-                    _a.sent();
-                    return [2 /*return*/];
-            }
-        });
-    }); });
-    socket.on("create_room", function () { return __awaiter(void 0, void 0, void 0, function () {
-        var createGameRoomService, getUserBySocketIdService, getGameRoomByUserService, user, room;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    createGameRoomService = tsyringe_1.container.resolve(CreateGameRoomService_1.CreateGameRoomService);
-                    getUserBySocketIdService = tsyringe_1.container.resolve(GetUserBySocketIdService_1.GetUserBySocketIdService);
-                    getGameRoomByUserService = tsyringe_1.container.resolve(GetGameRoomByUserService_1.GetGameRoomByUserService);
-                    return [4 /*yield*/, getUserBySocketIdService.execute(socket.id)];
-                case 1:
-                    user = _a.sent();
-                    return [4 /*yield*/, getGameRoomByUserService.execute([user._id])];
-                case 2:
-                    room = _a.sent();
-                    if (!!room) return [3 /*break*/, 4];
-                    return [4 /*yield*/, createGameRoomService.execute([user._id])];
-                case 3:
-                    room = _a.sent();
-                    _a.label = 4;
-                case 4:
-                    socket.join(room.idGameRoom);
-                    socket.broadcast.emit("new_game", user);
-                    return [2 /*return*/];
-            }
+            parsedData = JSON.parse(data);
+            roomName = parsedData.roomName;
+            socket.join(roomName);
+            console.log("Room created: " + roomName);
+            gameRoom = new GameRoom_1.GameRoom();
+            gameRoom.addPlayer(player);
+            gameRoom.setSocket(http_1.io);
+            rooms[roomName] = gameRoom;
+            socket.broadcast.emit("new_room", roomName);
+            return [2 /*return*/];
         });
     }); });
     socket.on("enter_room", function (data) { return __awaiter(void 0, void 0, void 0, function () {
-        var getUserBySocketIdService, getGameRoomByUserService, user, room;
+        var parsedData, roomName, gameRoom;
         return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    getUserBySocketIdService = tsyringe_1.container.resolve(GetUserBySocketIdService_1.GetUserBySocketIdService);
-                    getGameRoomByUserService = tsyringe_1.container.resolve(GetGameRoomByUserService_1.GetGameRoomByUserService);
-                    return [4 /*yield*/, getUserBySocketIdService.execute(socket.id)];
-                case 1:
-                    user = _a.sent();
-                    return [4 /*yield*/, getGameRoomByUserService.execute([data.idUser])];
-                case 2:
-                    room = _a.sent();
-                    if (!room.idUsers.some(function (idUser) {
-                        console.log(idUser);
-                        return String(idUser) === String(user._id);
-                    })) {
-                        room.idUsers.push(user._id);
-                        room.save();
-                    }
-                    socket.join(room.idGameRoom);
-                    socket.broadcast.emit("new_user_room", user);
-                    return [2 /*return*/];
-            }
+            parsedData = JSON.parse(data);
+            roomName = parsedData.roomName;
+            socket.join(roomName);
+            gameRoom = rooms[roomName];
+            gameRoom.addPlayer(player);
+            socket.broadcast.emit("new_user_room", roomName);
+            return [2 /*return*/];
         });
     }); });
 });
